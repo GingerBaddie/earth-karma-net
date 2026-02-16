@@ -1,72 +1,49 @@
 
 
-# EcoTrack — Community Environmental Impact Platform
+## AI-Powered Image Verification for Activity Submissions
 
-## Overview
-A green-themed, nature-inspired platform where citizens participate in environmental activities, earn points, unlock rewards, and compete on leaderboards. Organizers/admins verify activities and manage events.
+When a volunteer uploads a photo for an activity (e.g., Tree Plantation), the app will use built-in AI to analyze the image and verify it actually shows that type of activity before allowing submission.
 
-**Tech:** React + Tailwind (frontend) · Supabase via Lovable Cloud (auth, database, storage, edge functions)
+### How It Will Work
+
+1. Volunteer selects an activity type (e.g., "Tree Plantation") and uploads a photo
+2. The app sends the image to a backend function that uses AI vision to analyze it
+3. AI returns whether the image matches the activity type, along with a confidence score
+4. If verified, the submit button enables; if not, a warning is shown asking the user to upload a relevant photo
+
+### What Will Be Built
+
+**1. Backend Function (`verify-activity-image`)**
+- Receives the uploaded image (as base64) and the selected activity type
+- Sends it to Google Gemini (via Lovable AI gateway) with a prompt like: *"Does this image show evidence of [tree plantation / cleanup / recycling / eco habit]? Respond with match (true/false), confidence (0-1), and a short reason."*
+- Uses tool calling to get structured output (match, confidence, reason)
+- Returns the verification result to the frontend
+
+**2. Frontend Changes (`SubmitActivity.tsx`)**
+- After a user selects an image, automatically trigger verification
+- Show a loading state: "Verifying image..."
+- On success (match = true): show a green checkmark with the AI's reason (e.g., "Image shows tree planting activity")
+- On failure (match = false): show a warning with the reason (e.g., "This doesn't appear to be a cleanup activity") and allow re-upload
+- Disable the Submit button until verification passes
+- Allow submission even if verification fails (with a warning badge), since the admin will do final review
+
+**3. Config Update (`supabase/config.toml`)**
+- Register the new `verify-activity-image` edge function
 
 ---
 
-## 1. Landing Page
-- Hero section with nature imagery, tagline, and CTA buttons (Sign Up / Log In)
-- Live counters: trees planted, waste collected, active users
-- Feature highlights: how it works (participate → verify → earn → impact)
-- Green/earthy color palette with leaf accents throughout
+### Technical Details
 
-## 2. Authentication
-- Supabase Auth with email/password sign-up and login
-- Role selection during registration (Citizen or Organizer)
-- Roles stored in a separate `user_roles` table (security best practice)
-- User profiles table with name and avatar
+**Edge Function: `supabase/functions/verify-activity-image/index.ts`**
+- Uses `LOVABLE_API_KEY` (auto-provisioned, no user setup needed)
+- Calls `https://ai.gateway.lovable.dev/v1/chat/completions` with model `google/gemini-3-flash-preview`
+- Sends the image as a base64 `image_url` content part alongside a verification prompt
+- Uses tool calling to extract structured output: `{ match: boolean, confidence: number, reason: string }`
+- Handles 429/402 rate limit errors gracefully
 
-## 3. Database Schema (Supabase/PostgreSQL)
-- **profiles** — name, avatar_url, points, linked to auth.users
-- **user_roles** — user_id, role enum (citizen, organizer)
-- **activities** — user_id, type (tree_plantation, cleanup, recycling, eco_habit), image_url, latitude, longitude, status (pending/approved/rejected), points_awarded, created_at
-- **events** — title, description, location, date, created_by, with event_participants join table
-- **rewards** — name, description, points_required, icon
-- **user_rewards** — tracks which rewards each user has unlocked
-- RLS policies on all tables for proper access control
-
-## 4. Citizen Dashboard
-- Points summary card with progress toward next reward
-- Earned badges/rewards display
-- Recent activity feed with status indicators (pending/approved/rejected)
-- Charts: monthly activity breakdown, environmental impact over time (using Recharts)
-
-## 5. Submit Activity Page
-- Activity type dropdown (tree plantation, cleanup drive, recycling, eco-friendly habit)
-- Image upload (stored in Supabase Storage bucket)
-- Auto geo-location capture via browser Geolocation API with map preview
-- Submit button with confirmation toast
-
-## 6. Events Page
-- List of upcoming events with cards (title, date, location, description)
-- "Join Event" button with participant count
-- QR code check-in simulation (generate/display QR code for each event)
-
-## 7. Leaderboard Page
-- Top contributors ranked by points
-- Filter tabs: daily / weekly / monthly / all-time
-- User avatar, name, points, and rank badge
-- Highlight current user's position
-
-## 8. Admin / Organizer Panel
-- **Pending Activities**: review submissions with image, location, user info — approve/reject buttons
-- On approval: automatically award points based on activity type (tree: 50pts, cleanup: 30pts, recycling: 20pts, eco habit: 5pts) and unlock rewards if thresholds crossed
-- **Event Management**: create, edit, and delete events
-- **Analytics Dashboard**: total activities, participation trends, top categories, active users chart
-
-## 9. Point & Reward System
-- Automatic point allocation on admin approval via database trigger or edge function
-- Point values: Tree plantation (50), Cleanup drive (30), Recycling (20), Eco-friendly habit (5)
-- Rewards unlock automatically when point thresholds are crossed
-- Visual reward badges displayed on user profile and dashboard
-
-## 10. Image Storage & Geo-location
-- Supabase Storage bucket for activity images with proper RLS
-- Browser Geolocation API captures lat/lng on activity submission
-- Coordinates stored with each activity for verification
+**Frontend Flow in `SubmitActivity.tsx`:**
+- New state variables: `verifying`, `verificationResult`
+- When image is selected, convert to base64 and call the edge function via `supabase.functions.invoke`
+- Display verification status between the photo upload area and the location section
+- Re-trigger verification if the user changes the activity type after uploading an image
 
