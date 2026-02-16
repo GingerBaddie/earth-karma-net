@@ -1,50 +1,28 @@
 
 
-## Role-Based Dashboard Pages
+## Restrict Activity Moderation to Super Admin Only
 
-Currently, all users (volunteers, organizers, and admins) land on the same `/dashboard` page, which shows volunteer-centric content: personal points, rewards progress, activity charts, and check-in history. Organizers and admins already have separate pages (`/admin` and `/super-admin`), but the main dashboard doesn't reflect their role.
+Currently, the Organizer dashboard shows **all** pending activities platform-wide with approve/reject controls. This is a privilege that should belong exclusively to the Super Admin. Organizers should focus on managing their own events, not moderating activity submissions from across the platform.
 
 ### What will change
 
-The `/dashboard` route will render different content based on the user's role:
+**Organizer Dashboard (`OrganizerDashboard.tsx`)**
+- Remove the entire "Pending Activities" section (the card with approve/reject buttons)
+- Remove the "Pending Reviews" stat card from the top stats row
+- Adjust the stats grid from 3 columns to 2 columns (keeping "My Events" and "Total Participants")
+- Remove the `handleApprove`, `handleReject` functions and related imports (`CheckCircle2`, `XCircle`, `ClipboardCheck`)
+- Remove the pending activities data fetching logic from the `useEffect`
 
-**Volunteers (citizens)** -- Keep the current dashboard exactly as-is. This is their primary view showing personal stats, rewards, activity history, and charts.
+**Admin Dashboard (`AdminDashboard.tsx`)** -- No changes needed. It already has the global pending activities view, which is correct for the Super Admin role.
 
-**Organizers** -- Instead of the volunteer dashboard, they see:
-- A welcome header with their name and "Organizer" badge
-- Quick stats: number of events they created, pending activities to review, total participants across their events
-- A "Pending Activities" section showing submissions awaiting their review (with approve/reject buttons)
-- A "My Events" section listing their events with quick links to create a new one or manage existing ones
-- A quick-access button to the full Admin Panel for deeper management
+**RLS Policies** -- No database changes needed. The existing RLS policies already allow both roles to read activities; this change simply removes the UI for organizers. The backend policies can remain as-is since they don't cause a security issue (organizers just won't have the UI to act on them from the dashboard).
 
-**Admins** -- Instead of the volunteer dashboard, they see:
-- A welcome header with "Super Admin" badge
-- Platform-wide stats: total users, total events, total activities, total points distributed
-- A "Pending Activities" section (all pending, not filtered by event ownership)
-- Quick overview of recent events and recent user signups
-- Quick-access button to the full Super Admin dashboard
+### Summary
 
-### Technical approach
+| Dashboard | Before | After |
+|-----------|--------|-------|
+| Organizer | Events + Pending Activities + Participants | Events + Participants only |
+| Admin | Full platform stats + Pending Activities | No change |
 
-**File: `src/pages/Dashboard.tsx`**
-- Import `useAuth` to get the `role`
-- Based on `role`, render one of three sub-components:
-  - `VolunteerDashboard` -- the existing dashboard content, extracted into its own component
-  - `OrganizerDashboard` -- new component with organizer-specific stats and quick actions
-  - `AdminDashboard` -- new component with platform-wide overview
-
-**New files:**
-- `src/components/dashboard/VolunteerDashboard.tsx` -- extracted from current Dashboard.tsx (no logic changes)
-- `src/components/dashboard/OrganizerDashboard.tsx` -- organizer-specific dashboard view
-- `src/components/dashboard/AdminDashboard.tsx` -- admin-specific dashboard view
-
-**No database or routing changes needed.** The `/dashboard` route stays the same; the page just conditionally renders based on role. The existing `/admin` and `/super-admin` pages remain unchanged as the full management views.
-
-### Summary of each dashboard
-
-| Role | Stats shown | Key sections | Links to |
-|------|-------------|-------------|----------|
-| Citizen | Points, activities, rewards, pending count | Charts, rewards grid, activity history, check-ins | Submit Activity |
-| Organizer | My events count, pending reviews, total participants | Pending activities (approve/reject), my events list | Admin Panel, Create Event |
-| Admin | Total users, events, activities, points | Pending activities, recent events, recent users | Super Admin |
+Only one file needs to be modified: `src/components/dashboard/OrganizerDashboard.tsx`.
 
