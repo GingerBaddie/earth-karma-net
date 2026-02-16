@@ -1,107 +1,50 @@
 
 
-## Fix: Organizer Event Isolation + New Admin Role
+## Role-Based Dashboard Pages
 
-### Problem
-Currently, any organizer can see, delete, and show QR codes for events created by other organizers. There is also no separate "administrator" role that can manage all users and events globally.
+Currently, all users (volunteers, organizers, and admins) land on the same `/dashboard` page, which shows volunteer-centric content: personal points, rewards progress, activity charts, and check-in history. Organizers and admins already have separate pages (`/admin` and `/super-admin`), but the main dashboard doesn't reflect their role.
 
-### Solution Overview
+### What will change
 
-Two main changes:
+The `/dashboard` route will render different content based on the user's role:
 
-1. **Organizer event isolation** -- On the Admin Panel, organizers will only see events they created. Delete and QR Code buttons will only appear for their own events.
+**Volunteers (citizens)** -- Keep the current dashboard exactly as-is. This is their primary view showing personal stats, rewards, activity history, and charts.
 
-2. **New Administrator role** -- A new `admin` role will be added to the system. A specific admin account (`admin@ecotrack.com`) will be seeded. The admin gets a dedicated Super Admin page with full visibility into all users (volunteers + organizers), all events, all activities, and detailed analytics.
+**Organizers** -- Instead of the volunteer dashboard, they see:
+- A welcome header with their name and "Organizer" badge
+- Quick stats: number of events they created, pending activities to review, total participants across their events
+- A "Pending Activities" section showing submissions awaiting their review (with approve/reject buttons)
+- A "My Events" section listing their events with quick links to create a new one or manage existing ones
+- A quick-access button to the full Admin Panel for deeper management
 
----
+**Admins** -- Instead of the volunteer dashboard, they see:
+- A welcome header with "Super Admin" badge
+- Platform-wide stats: total users, total events, total activities, total points distributed
+- A "Pending Activities" section (all pending, not filtered by event ownership)
+- Quick overview of recent events and recent user signups
+- Quick-access button to the full Super Admin dashboard
 
-### What Changes
+### Technical approach
 
-**Database (migration):**
-- Add `'admin'` to the `app_role` enum so the role system supports three roles: `citizen`, `organizer`, `admin`
-- Update RLS policies on key tables so admins can read all data (profiles, activities, events, user_roles)
-- Seed the admin account: create user via edge function, assign `admin` role
+**File: `src/pages/Dashboard.tsx`**
+- Import `useAuth` to get the `role`
+- Based on `role`, render one of three sub-components:
+  - `VolunteerDashboard` -- the existing dashboard content, extracted into its own component
+  - `OrganizerDashboard` -- new component with organizer-specific stats and quick actions
+  - `AdminDashboard` -- new component with platform-wide overview
 
-**Backend (edge function):**
-- Create a `seed-admin` edge function that registers `admin@ecotrack.com` with password `Admin123!` and assigns the `admin` role. This runs once to bootstrap the admin account.
+**New files:**
+- `src/components/dashboard/VolunteerDashboard.tsx` -- extracted from current Dashboard.tsx (no logic changes)
+- `src/components/dashboard/OrganizerDashboard.tsx` -- organizer-specific dashboard view
+- `src/components/dashboard/AdminDashboard.tsx` -- admin-specific dashboard view
 
-**Frontend changes:**
+**No database or routing changes needed.** The `/dashboard` route stays the same; the page just conditionally renders based on role. The existing `/admin` and `/super-admin` pages remain unchanged as the full management views.
 
-| File | Change |
-|------|--------|
-| `Admin.tsx` | Filter the events list to only show events where `created_by === user.id` (organizers only see their own). Admin role sees everything. |
-| `EventDetail.tsx` | Only show QR code and organizer controls if the current user created the event OR is an admin. |
-| `AuthContext.tsx` | Handle `admin` role alongside `organizer`. |
-| `ProtectedRoute.tsx` | Support `requireRole` accepting `"organizer"` or `"admin"`, and allow admin to access organizer routes too. |
-| `Navbar.tsx` | Show "Super Admin" link for admin role users. |
-| `App.tsx` | Add route `/super-admin` for the new admin dashboard. |
-| New: `SuperAdmin.tsx` | Full admin dashboard with tabs: Users (all profiles + roles), Events (all events with management), Activities (all submissions), and Analytics (global stats). |
+### Summary of each dashboard
 
----
-
-### Detailed Technical Plan
-
-**1. Database Migration**
-
-```sql
--- Add admin to app_role enum
-ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'admin';
-
--- Allow admins to read all profiles
-CREATE POLICY "Admins can view all profiles"
-  ON public.profiles FOR SELECT
-  USING (public.has_role(auth.uid(), 'admin'));
-
--- Allow admins to read all user_roles
-CREATE POLICY "Admins can view all roles"
-  ON public.user_roles FOR SELECT
-  USING (public.has_role(auth.uid(), 'admin'));
-
--- Allow admins to view all activities
-CREATE POLICY "Admins can view all activities"
-  ON public.activities FOR SELECT
-  USING (public.has_role(auth.uid(), 'admin'));
-
--- Allow admins to update activities
-CREATE POLICY "Admins can update activities"
-  ON public.activities FOR UPDATE
-  USING (public.has_role(auth.uid(), 'admin'));
-
--- Allow admins to manage all events (CRUD)
-CREATE POLICY "Admins can manage all events"
-  ON public.events FOR ALL
-  USING (public.has_role(auth.uid(), 'admin'));
-```
-
-**2. Seed Admin Edge Function (`seed-admin`)**
-
-- Creates the admin user via Supabase Admin API (`supabase.auth.admin.createUser`)
-- Inserts a row in `user_roles` with role `admin`
-- Creates the corresponding profile
-- Idempotent -- safe to call multiple times
-
-**3. Admin.tsx Changes**
-
-- When fetching events, filter by `created_by === user.id` for organizers
-- If the user role is `admin`, show all events (no filter)
-- This fixes the core bug
-
-**4. EventDetail.tsx Changes**
-
-- Change `isOrganizer` check to: show organizer controls only if `event.created_by === user.id` OR role is `admin`
-- This prevents organizers from seeing QR codes for events they didn't create
-
-**5. New SuperAdmin.tsx Page**
-
-Four tabs:
-- **Users**: Table of all users showing name, email (from profile), city, role, points, join date. Search/filter capability.
-- **Events**: All events with participant counts, created-by info, delete option
-- **Activities**: All activity submissions with status, type, user info
-- **Analytics**: Global stats -- total users, total events, total activities by type, points distributed
-
-**6. Navigation and Routing**
-
-- `ProtectedRoute` updated to accept `requireRole: "organizer" | "admin"` and admin can access organizer pages too
-- New `/super-admin` route protected with `requireRole="admin"`
-- Navbar shows "Super Admin" for admin users, "Admin Panel" for organizers
+| Role | Stats shown | Key sections | Links to |
+|------|-------------|-------------|----------|
+| Citizen | Points, activities, rewards, pending count | Charts, rewards grid, activity history, check-ins | Submit Activity |
+| Organizer | My events count, pending reviews, total participants | Pending activities (approve/reject), my events list | Admin Panel, Create Event |
+| Admin | Total users, events, activities, points | Pending activities, recent events, recent users | Super Admin |
 
