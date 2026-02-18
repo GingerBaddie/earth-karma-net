@@ -22,8 +22,22 @@ export default function Register() {
   const [role, setRole] = useState<AppRole>("citizen");
   const [loading, setLoading] = useState(false);
 
+  const validatePassword = (pw: string): string | null => {
+    if (pw.length < 8) return "Password must be at least 8 characters";
+    if (!/[a-z]/.test(pw)) return "Password must include a lowercase letter";
+    if (!/[A-Z]/.test(pw)) return "Password must include an uppercase letter";
+    if (!/[0-9]/.test(pw)) return "Password must include a number";
+    if (!/[^a-zA-Z0-9]/.test(pw)) return "Password must include a special character";
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const pwError = validatePassword(password);
+    if (pwError) {
+      toast({ title: "Weak password", description: pwError, variant: "destructive" });
+      return;
+    }
     setLoading(true);
     try {
       await signUp(email, password, name, role, city);
@@ -65,7 +79,8 @@ export default function Register() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} placeholder="••••••••" />
+              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} placeholder="••••••••" />
+              <p className="text-xs text-muted-foreground">Min 8 chars with uppercase, lowercase, number & symbol</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="city">City / Address</Label>
