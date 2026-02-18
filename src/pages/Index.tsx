@@ -88,7 +88,7 @@ export default function Index() {
                 <Link to="/register">Get Started <ArrowRight className="ml-2 h-4 w-4" /></Link>
               </Button>
               <Button asChild variant="outline" size="lg" className="text-base px-8 backdrop-blur-sm">
-                <Link to="/leaderboard">View Leaderboard</Link>
+                <Link to="/events">View Events</Link>
               </Button>
             </div>
           </div>
