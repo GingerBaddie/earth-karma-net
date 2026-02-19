@@ -1,73 +1,81 @@
-# Welcome to your Lovable project
+# EcoTrack - Earth Karma Network
 
-## Project info
+A community-driven platform for tracking and verifying eco-friendly activities.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Tech Stack
 
-## How can I edit this code?
+- **Frontend**: React + TypeScript + Vite
+- **UI**: Tailwind CSS + shadcn-ui
+- **Backend**: Supabase (Database, Auth, Storage, Edge Functions)
 
-There are several ways of editing your application.
+## Local Development
 
-**Use Lovable**
+### Prerequisites
+- Node.js 18+ (or Bun)
+- Supabase account
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+### Setup
 
-Changes made via Lovable will be committed automatically to this repo.
+```bash
+# Clone the repository
+git clone https://github.com/GingerBaddie/earth-karma-net.git
+cd earth-karma-net
 
-**Use your preferred IDE**
+# Install dependencies
+npm install
+# or: bun install
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+# Copy environment variables
+cp .env.example .env
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
+# or: bun run dev
 ```
 
-**Edit a file directly in GitHub**
+### Environment Variables
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Create a `.env` file with:
 
-**Use GitHub Codespaces**
+```
+VITE_SUPABASE_PROJECT_ID=your_project_id
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_PUBLISHABLE_KEY=your_anon_key
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Deployment
 
-## What technologies are used for this project?
+### Option 1: Vercel
 
-This project is built with:
+1. Push your code to GitHub
+2. Import project in Vercel
+3. Add environment variables
+4. Deploy
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Option 2: Netlify
 
-## How can I deploy this project?
+1. Create `netlify.toml`:
+```toml
+[build]
+  command = "npm run build"
+  publish = "dist"
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+```
 
-## Can I connect a custom domain to my Lovable project?
+2. Deploy via Netlify CLI or GitHub integration
 
-Yes, you can!
+### Option 3: Self-hosted with Docker
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+RUN npm run build
+CMD ["npm", "run", "preview"]
+```
